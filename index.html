@@ -1,1 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FAMT Admission Assistant</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --navy:    #0B1F3A;
+    --navy2:   #122647;
+    --gold:    #C9A84C;
+    --gold2:   #E4C56A;
+    --cream:   #F5F0E8;
+    --white:   #FFFFFF;
+    --grey:    #8A97A8;
+    --bubble-user: linear-gradient(135deg,#C9A84C,#E4C56A);
+    --bubble-bot:  #162D50;
+    --glow:    0 0 24px rgba(201,168,76,0.25);
+    --radius:  18px;
+    --shadow:  0 8px 40px rgba(11,31,58,0.55);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--navy);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* ── Animated background ── */
+  .bg {
+    position: fixed; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 20% 50%, #122647 0%, #0B1F3A 60%, #060F1E 100%);
+    overflow: hidden;
+  }
+  .bg-orb {
+    position: absolute; border-radius: 50%;
+    filter: blur(80px); opacity: .18; animation: drift 14s ease-in-out infinite alternate;
+  }
+  .bg-orb.a { width:520px;height:520px; background:#C9A84C; top:-120px; left:-80px; animation-delay:0s; }
+  .bg-orb.b { width:380px;height:380px; background:#1E5FA8; bottom:-100px; right:-60px; animation-delay:-5s; }
+  .bg-orb.c { width:260px;height:260px; background:#C9A84C; top:60%; left:55%; animation-delay:-9s; }
+  @keyframes drift { from{transform:translate(0,0) scale(1);} to{transform:translate(30px,40px) scale(1.07);} }
+
+  /* ── Particle canvas ── */
+  #particles { position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+  /* ── Widget wrapper ── */
+  .widget {
+    position: relative; z-index: 10;
+    width: min(820px, 98vw);
+    height: min(720px, 96vh);
+    display: flex; flex-direction: column;
+    background: rgba(13,27,52,0.88);
+    border: 1px solid rgba(201,168,76,0.28);
+    border-radius: 28px;
+    box-shadow: var(--shadow), 0 0 0 1px rgba(201,168,76,0.08);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    animation: popIn .55s cubic-bezier(.22,1,.36,1) both;
+  }
+  @keyframes popIn { from{opacity:0;transform:scale(.94) translateY(20px);} to{opacity:1;transform:none;} }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #0F2444 0%, #142D52 100%);
+    border-bottom: 1px solid rgba(201,168,76,0.25);
+    padding: 18px 24px;
+    display: flex; align-items: center; gap: 16px;
+    position: relative; flex-shrink: 0;
+  }
+  .header::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg,transparent,var(--gold),var(--gold2),transparent);
+    animation: shimmer 3s linear infinite;
+  }
+  @keyframes shimmer { from{background-position:-200% 0;} to{background-position:200% 0;} }
+
+  .logo-ring {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: linear-gradient(135deg,var(--gold),var(--gold2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(201,168,76,0.5);
+    animation: pulse-ring 3s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%,100%{box-shadow:0 0 16px rgba(201,168,76,0.5);}
+    50%{box-shadow:0 0 28px rgba(201,168,76,0.8),0 0 48px rgba(201,168,76,0.25);}
+  }
+
+  .header-text h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px; font-weight: 800;
+    color: var(--gold2); line-height: 1.2;
+    letter-spacing: .01em;
+  }
+  .header-text p { font-size: 12px; color: var(--grey); margin-top: 2px; }
+
+  .status-dot {
+    margin-left: auto; display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: #5BE07A;
+  }
+  .status-dot span {
+    width:9px;height:9px;background:#5BE07A;border-radius:50%;
+    box-shadow:0 0 8px #5BE07A;
+    animation: blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+  /* ── Quick-topic pills ── */
+  .topics {
+    background: rgba(10,22,44,0.6);
+    border-bottom: 1px solid rgba(201,168,76,0.12);
+    padding: 10px 20px;
+    display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;
+    scrollbar-width: none;
+  }
+  .topics::-webkit-scrollbar { display:none; }
+  .pill {
+    flex-shrink:0;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--gold2); font-size: 11.5px; font-weight:500;
+    padding: 5px 13px; border-radius: 20px; cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .pill:hover { background: rgba(201,168,76,0.22); border-color: var(--gold); transform:translateY(-1px); }
+
+  /* ── Messages ── */
+  .messages {
+    flex: 1; overflow-y: auto; padding: 22px 22px 12px;
+    display: flex; flex-direction: column; gap: 14px;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.25); border-radius: 4px; }
+
+  .msg { display: flex; gap: 10px; animation: msgIn .35s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes msgIn { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:none;} }
+  .msg.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .avatar.bot { background: linear-gradient(135deg,#1A3D70,#2A5BA8); border: 1px solid rgba(201,168,76,0.3); }
+  .avatar.user { background: var(--bubble-user); }
+
+  .bubble {
+    max-width: 72%; padding: 12px 16px; border-radius: var(--radius);
+    font-size: 14px; line-height: 1.65; position: relative;
+  }
+  .msg.bot .bubble {
+    background: var(--bubble-bot);
+    color: #D6E4F7;
+    border: 1px solid rgba(201,168,76,0.12);
+    border-top-left-radius: 5px;
+  }
+  .msg.user .bubble {
+    background: var(--bubble-user);
+    color: #0B1F3A;
+    font-weight: 500;
+    border-top-right-radius: 5px;
+  }
+
+  .bubble .ts {
+    font-size: 10px; opacity: .45; margin-top: 5px;
+    display: block; text-align: right;
+  }
+
+  /* quick-reply chips inside bot bubble */
+  .chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+  .chip {
+    background: rgba(201,168,76,0.12); border: 1px solid rgba(201,168,76,0.35);
+    color: var(--gold2); font-size: 12px; padding: 4px 11px; border-radius: 14px;
+    cursor:pointer; transition: all .18s;
+  }
+  .chip:hover { background: rgba(201,168,76,0.28); transform:translateY(-1px); }
+
+  /* typing indicator */
+  .typing .bubble { padding: 14px 18px; }
+  .dots { display:flex; gap:5px; align-items:center; }
+  .dots span {
+    width:7px;height:7px;background:var(--gold);border-radius:50%;
+    animation: bounce .9s ease-in-out infinite;
+  }
+  .dots span:nth-child(2){animation-delay:.18s;}
+  .dots span:nth-child(3){animation-delay:.36s;}
+  @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
+
+  /* ── Input area ── */
+  .input-area {
+    padding: 14px 18px;
+    background: rgba(10,22,44,0.75);
+    border-top: 1px solid rgba(201,168,76,0.18);
+    display: flex; gap: 10px; align-items: flex-end;
+    flex-shrink: 0;
+  }
+  #userInput {
+    flex:1; background: rgba(22,45,80,0.9);
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 14px; color: #E8F0FB; font-family: 'Inter',sans-serif;
+    font-size: 14px; padding: 12px 16px; resize: none;
+    min-height: 46px; max-height: 130px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    scrollbar-width: thin;
+  }
+  #userInput::placeholder { color: #4A607A; }
+  #userInput:focus {
+    border-color: rgba(201,168,76,0.6);
+    box-shadow: 0 0 0 3px rgba(201,168,76,0.1);
+  }
+  .send-btn {
+    width:46px;height:46px;border-radius:13px;
+    background: linear-gradient(135deg,var(--gold),var(--gold2));
+    border: none; color: #0B1F3A; cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px; flex-shrink:0;
+    transition:transform .18s, box-shadow .18s;
+    box-shadow: 0 4px 14px rgba(201,168,76,0.35);
+  }
+  .send-btn:hover { transform:scale(1.06); box-shadow:0 6px 20px rgba(201,168,76,0.5); }
+  .send-btn:active { transform:scale(.96); }
+  .send-btn:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align:center; font-size:11px; color:#3A5070;
+    padding: 8px 0 10px;
+    background: rgba(10,22,44,0.75);
+    flex-shrink:0;
+  }
+
+  /* ── Welcome card ── */
+  .welcome-card {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(26,61,112,0.3));
+    border: 1px solid rgba(201,168,76,0.22);
+    border-radius: 16px; padding: 18px 20px; margin-bottom: 4px;
+  }
+  .welcome-card h2 {
+    font-family:'Playfair Display',serif; font-size:18px; color:var(--gold2);
+    margin-bottom: 6px;
+  }
+  .welcome-card p { font-size: 13px; color: #8AAACB; line-height: 1.6; }
+
+  @media(max-width:520px){
+    .bubble{max-width:85%;}
+    .header-text h1{font-size:14px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg">
+  <div class="bg-orb a"></div>
+  <div class="bg-orb b"></div>
+  <div class="bg-orb c"></div>
+</div>
+<canvas id="particles"></canvas>
+
+<div class="widget">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo-ring">🎓</div>
+    <div class="header-text">
+      <h1>FAMT Admission Assistant</h1>
+      <p>Finolex Academy of Management &amp; Technology · Ratnagiri</p>
+    </div>
+    <div class="status-dot"><span></span>Online</div>
+  </div>
+
+  <!-- QUICK TOPICS -->
+  <div class="topics" id="topicBar">
+    <div class="pill" onclick="sendPill('Courses offered')">📚 Courses</div>
+    <div class="pill" onclick="sendPill('Admission process')">📝 Admission</div>
+    <div class="pill" onclick="sendPill('Eligibility criteria')">✅ Eligibility</div>
+    <div class="pill" onclick="sendPill('Fees structure')">💰 Fees</div>
+    <div class="pill" onclick="sendPill('Scholarships available')">🏆 Scholarships</div>
+    <div class="pill" onclick="sendPill('Campus facilities')">🏛️ Campus</div>
+    <div class="pill" onclick="sendPill('Placement records')">💼 Placements</div>
+    <div class="pill" onclick="sendPill('Contact information')">📞 Contact</div>
+    <div class="pill" onclick="sendPill('Important dates')">📅 Dates</div>
+  </div>
+
+  <!-- MESSAGES -->
+  <div class="messages" id="messages"></div>
+
+  <!-- INPUT -->
+  <div class="input-area">
+    <textarea id="userInput" rows="1" placeholder="Ask me anything about FAMT admissions…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+
+  <div class="footer">🔒 Powered by AI · FAMT Official Admission Bot · © 2025</div>
+</div>
+
+<script>
+/* ── Particle system ── */
+(function(){
+  const c=document.getElementById('particles'), ctx=c.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=c.width=innerWidth;H=c.height=innerHeight;}
+  resize(); window.addEventListener('resize',resize);
+  for(let i=0;i<55;i++) pts.push({x:Math.random()*1400,y:Math.random()*900,vx:(Math.random()-.5)*.28,vy:(Math.random()-.5)*.28,r:Math.random()*1.4+.4,a:Math.random()});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(201,168,76,${p.a*.35})`;
+      ctx.fill();
+    });
+    pts.forEach((a,i)=>pts.slice(i+1).forEach(b=>{
+      const d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(d<100){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle=`rgba(201,168,76,${.06*(1-d/100)})`;ctx.stroke();}
+    }));
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ── Chat state ── */
+const conversationHistory = [];
+let isTyping = false;
+
+const SYSTEM_PROMPT = `You are an expert admission assistant chatbot for Finolex Academy of Management and Technology (FAMT), located in Ratnagiri, Maharashtra, India. You help prospective students with engineering college admissions.
+
+ABOUT FAMT:
+- Full name: Finolex Academy of Management and Technology
+- Location: Finolex Colony, Parshuram, Ratnagiri – 415 639, Maharashtra, India
+- Affiliation: Affiliated to Dr. Babasaheb Ambedkar Technological University (DBATU), Lonere
+- Approved by: AICTE (All India Council for Technical Education)
+- Established: 1994
+- Type: Private Engineering College
+
+COURSES OFFERED (B.E. – 4 years):
+1. Computer Engineering – 60 seats
+2. Mechanical Engineering – 60 seats
+3. Civil Engineering – 60 seats
+4. Electronics & Telecommunication Engineering – 60 seats
+5. Chemical Engineering – 60 seats
+Also offers MBA (60 seats) and M.E. programs.
+
+ADMISSION PROCESS:
+1. Appear for MHT-CET (Maharashtra Common Entrance Test) or JEE Main
+2. Register on official CAP (Centralized Admission Process) portal: cetcell.mahacet.org
+3. Fill CAP application form and upload documents
+4. Attend Document Verification at Facilitation Centre
+5. Fill option form (college/branch preferences online)
+6. Rounds of allotment: CAP Round 1, Round 2, Round 3 (if applicable)
+7. Report to FAMT with allotment letter and complete admission formalities
+8. Pay admission fees within specified deadline
+
+ELIGIBILITY CRITERIA:
+- Passed HSC (12th Std) or equivalent with Physics, Chemistry, Mathematics (PCM)
+- Minimum 45% aggregate in PCM (40% for reserved categories - SC/ST/OBC/NT etc.)
+- Valid MHT-CET score OR JEE Main score
+- Maharashtra domicile/state quota applicants must have MHT-CET score
+- All India Quota (15% seats) via JEE Main
+
+FEES STRUCTURE (Approximate per year):
+- Tuition Fees: ₹82,074/year (for Maharashtra students)
+- Development Fees: ₹10,000
+- Other charges: ₹8,000-12,000
+- Total approx: ₹1,00,000 - ₹1,10,000 per year
+- Hostel: ₹60,000-75,000 per year (optional, separate)
+- Fees may vary; confirm with college office
+
+SCHOLARSHIPS:
+1. Government of Maharashtra EBC Scholarship (income < ₹8 lakh)
+2. OBC/SC/ST/NT fee waiver (Government of Maharashtra)
+3. TFWS (Tuition Fee Waiver Scheme) – top rankers, full tuition waiver
+4. Post-Matric Scholarship (minority communities)
+5. Merit Scholarship by FAMT for college toppers
+6. Pragati & Saksham Scholarships (AICTE) for girls and differently-abled
+7. Central Sector Scholarship (income < ₹4.5 lakh)
+
+CAMPUS FACILITIES:
+- Modern classrooms and air-conditioned labs
+- Central Library with 50,000+ books and digital resources
+- Computer labs with high-speed internet
+- Boys' and Girls' Hostel
+- Sports ground, basketball/volleyball courts
+- Auditorium seating 1000+
+- Canteen and cafeteria
+- Medical room and first aid
+- Wi-Fi campus
+- NPTEL Swayam online learning center
+- R&D and innovation labs
+- Soft-skills and language lab
+
+PLACEMENT RECORDS:
+- Average placement rate: 85%+
+- Top recruiters: TCS, Infosys, Wipro, Cognizant, Tech Mahindra, L&T, Kirloskar, Reliance, Forbes Marshall
+- Average package: ₹3.5 – 6 LPA
+- Highest package recorded: ₹12 LPA
+- Training & Placement cell is active and conducts mock interviews, resume workshops
+
+IMPORTANT DATES (2025-26 cycle, approximate):
+- MHT-CET Exam: April-May 2025
+- CAP Registration: June 2025
+- Document Verification: June-July 2025
+- CAP Round 1 Allotment: July 2025
+- CAP Round 2 Allotment: August 2025
+- Institute Level Admission (vacant seats): August-September 2025
+- Academic Year starts: November 2025
+
+CONTACT INFORMATION:
+- Address: Finolex Colony, Parshuram, Ratnagiri – 415 639, Maharashtra
+- Phone: 02352-220209, 02352-220310
+- Email: principal@famt.ac.in / admissions@famt.ac.in
+- Website: www.famt.ac.in
+
+DOCUMENTS REQUIRED FOR ADMISSION:
+1. HSC (12th) Marksheet & Passing Certificate
+2. SSC (10th) Marksheet & Passing Certificate
+3. MHT-CET / JEE Main Scorecard
+4. Domicile Certificate
+5. Nationality Certificate
+6. Caste Certificate (if applicable)
+7. Caste Validity Certificate (if applicable)
+8. Non-Creamy Layer Certificate (for OBC/NT/SBC)
+9. Aadhar Card (Self & Parents)
+10. Income Certificate (for scholarship)
+11. Transfer Certificate
+12. Migration Certificate
+13. Medical Fitness Certificate
+14. Recent passport-size photographs (6)
+
+RESPONSE GUIDELINES:
+- Be warm, helpful, and professional
+- Use emojis appropriately to make responses friendly
+- When listing items, use clear formatting
+- Always encourage students and wish them good luck
+- If asked something outside your knowledge, politely say you're not sure and suggest contacting the admissions office
+- Keep responses concise but complete
+- Always end with a helpful follow-up offer or question`;
+
+/* ── Render helpers ── */
+function timestamp(){
+  return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+}
+
+function appendMsg(role, text, chips=[]){
+  const wrap = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+
+  const avatarIcon = role==='bot' ? '🎓' : '👤';
+  const avatarClass = role==='bot' ? 'bot' : 'user';
+
+  let chipsHtml = '';
+  if(chips.length){
+    chipsHtml = `<div class="chips">${chips.map(c=>`<div class="chip" onclick="sendPill('${c}')">${c}</div>`).join('')}</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="avatar ${avatarClass}">${avatarIcon}</div>
+    <div class="bubble">
+      ${formatText(text)}
+      ${chipsHtml}
+      <span class="ts">${timestamp()}</span>
+    </div>`;
+  wrap.appendChild(el);
+  wrap.scrollTop = wrap.scrollHeight;
+  return el;
+}
+
+function formatText(t){
+  // Bold **text**
+  t = t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  // Bullet lines
+  t = t.replace(/^[-•]\s+(.+)$/gm,'<li>$1</li>');
+  t = t.replace(/(<li>.*<\/li>)/gs,'<ul style="padding-left:16px;margin:6px 0;">$1</ul>');
+  // Numbered list
+  t = t.replace(/^\d+\.\s+(.+)$/gm,'<li>$1</li>');
+  // Line breaks
+  t = t.replace(/\n/g,'<br>');
+  return t;
+}
+
+function showTyping(){
+  const wrap = document.getElementById('messages');
+  const el = document.createElement('div');
+  el.className = 'msg bot typing'; el.id = 'typing-ind';
+  el.innerHTML = `<div class="avatar bot">🎓</div><div class="bubble"><div class="dots"><span></span><span></span><span></span></div></div>`;
+  wrap.appendChild(el); wrap.scrollTop = wrap.scrollHeight;
+}
+function hideTyping(){ document.getElementById('typing-ind')?.remove(); }
+
+/* ── Send ── */
+async function sendMessage(){
+  const inp = document.getElementById('userInput');
+  const text = inp.value.trim();
+  if(!text || isTyping) return;
+
+  inp.value = ''; autoResize(inp);
+  appendMsg('user', text);
+  conversationHistory.push({role:'user', content: text});
+  await getReply();
+}
+
+function sendPill(text){
+  if(isTyping) return;
+  document.getElementById('userInput').value = '';
+  appendMsg('user', text);
+  conversationHistory.push({role:'user', content: text});
+  getReply();
+}
+
+async function getReply(){
+  isTyping = true;
+  document.getElementById('sendBtn').disabled = true;
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: conversationHistory
+      })
+    });
+
+    const data = await res.json();
+    hideTyping();
+
+    let reply = '';
+    if(data.content && data.content[0]){
+      reply = data.content[0].text || '';
+    } else {
+      reply = "I'm sorry, I couldn't process that. Please try again or contact our admissions office at admissions@famt.ac.in 📧";
+    }
+
+    conversationHistory.push({role:'assistant', content: reply});
+
+    // Suggest follow-up chips contextually
+    const lower = reply.toLowerCase();
+    let chips = [];
+    if(lower.includes('course') || lower.includes('branch'))
+      chips = ['Fees structure','Eligibility criteria','Admission process'];
+    else if(lower.includes('fee') || lower.includes('₹'))
+      chips = ['Scholarship options','Payment process','Hostel fees'];
+    else if(lower.includes('admission') || lower.includes('cap'))
+      chips = ['Documents required','Important dates','Contact information'];
+    else if(lower.includes('placement') || lower.includes('recruit'))
+      chips = ['Campus facilities','Courses offered','Contact information'];
+    else
+      chips = ['Tell me more','Contact information','Courses offered'];
+
+    appendMsg('bot', reply, chips);
+
+  } catch(err){
+    hideTyping();
+    const errMsg = "⚠️ Network error. Please check your connection. You can also reach us at **02352-220209** or **admissions@famt.ac.in**.";
+    appendMsg('bot', errMsg, ['Try again','Contact information']);
+    conversationHistory.push({role:'assistant', content: errMsg});
+  }
+
+  isTyping = false;
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('userInput').focus();
+}
+
+/* ── Keyboard & resize ── */
+function handleKey(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+}
+function autoResize(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,130)+'px';
+}
+
+/* ── Welcome message ── */
+function initChat(){
+  const wrap = document.getElementById('messages');
+  const card = document.createElement('div');
+  card.className='welcome-card';
+  card.innerHTML=`
+    <h2>Welcome to FAMT Admissions! 🎓</h2>
+    <p>Hello! I'm your personal admission assistant for <strong>Finolex Academy of Management and Technology, Ratnagiri</strong>. I can help you with courses, eligibility, fees, scholarships, placement records, campus facilities, and the entire admission process. Ask me anything!</p>`;
+  wrap.appendChild(card);
+
+  setTimeout(()=>{
+    const welcomeMsg = `Namaste! 🙏 Welcome to **FAMT – Finolex Academy of Management and Technology**, Ratnagiri!\n\nI'm here to guide you through your engineering admission journey. Here's what I can help you with:\n\n**📚 Courses** – B.E. programs in Computer, Mechanical, Civil, E&TC, Chemical Engineering\n**📝 Admission** – CAP process, round allotments, steps to apply\n**✅ Eligibility** – MHT-CET/JEE scores, percentage requirements\n**💰 Fees** – Tuition, hostel, and scholarship details\n**🏛️ Campus** – Labs, library, hostel, sports, Wi-Fi and more\n**💼 Placements** – Top recruiters, packages, training\n\nWhat would you like to know today? 😊`;
+    conversationHistory.push({role:'assistant', content: welcomeMsg});
+    appendMsg('bot', welcomeMsg, ['Courses offered','Admission process','Fees structure','Scholarships']);
+  }, 400);
+}
+
+initChat();
+</script>
+</body>
+</html>
 
